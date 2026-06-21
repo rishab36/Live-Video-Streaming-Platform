@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { getAuthErrorMessage, registerUser } from '../services/auth';
+import { getAuthErrorMessage, registerUser, getCurrentUser } from '../services/auth';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function Register() {
   const navigate = useNavigate();
+  const { login } = useAuth();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -17,6 +19,9 @@ export default function Register() {
 
     try {
       await registerUser({ name, email, password });
+      // Get the current user and update auth context
+      const user = await getCurrentUser();
+      login(user);
       navigate('/dashboard');
     } catch (err) {
       setError(getAuthErrorMessage(err));

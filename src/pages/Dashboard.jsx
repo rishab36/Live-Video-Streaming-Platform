@@ -9,7 +9,8 @@ import {
   subscribeToCreator,
   unsubscribeFromCreator,
 } from '../services/api';
-import { getAuthErrorMessage, getCurrentUser, logoutUser } from '../services/auth';
+import { getAuthErrorMessage } from '../services/auth';
+import { useAuth } from '../contexts/AuthContext';
 
 function UserRow({ user, actionLabel, onAction, disabled = false, loading = false, buttonClassName = 'btn-action' }) {
   return (
@@ -31,7 +32,7 @@ function UserRow({ user, actionLabel, onAction, disabled = false, loading = fals
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const [currentUser, setCurrentUser] = useState(null);
+  const { currentUser, logout } = useAuth();
   const [users, setUsers] = useState([]);
   const [subscriptions, setSubscriptions] = useState([]);
   const [liveStreams, setLiveStreams] = useState([]);
@@ -49,10 +50,9 @@ export default function Dashboard() {
 
     async function loadDashboard() {
       try {
-        const user = await getCurrentUser();
         const [allUsers, mySubscriptions, activeStreams] = await Promise.all([
           fetchUsers(),
-          fetchMySubscriptions(user.$id),
+          fetchMySubscriptions(currentUser.$id),
           fetchLiveStreams(),
         ]);
 
@@ -60,8 +60,7 @@ export default function Dashboard() {
           return;
         }
 
-        setCurrentUser(user);
-        setUsers(allUsers.filter((entry) => entry.id !== user.$id));
+        setUsers(allUsers.filter((entry) => entry.id !== currentUser.$id));
         setSubscriptions(mySubscriptions);
         setLiveStreams(activeStreams);
       } catch (err) {
@@ -80,13 +79,9 @@ export default function Dashboard() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [currentUser]);
 
   useEffect(() => {
-    if (!currentUser) {
-      return undefined;
-    }
-
     const intervalId = window.setInterval(async () => {
       try {
         const activeStreams = await fetchLiveStreams();
@@ -97,7 +92,7 @@ export default function Dashboard() {
     }, 5000);
 
     return () => window.clearInterval(intervalId);
-  }, [currentUser]);
+  }, []);
 
   const usersById = useMemo(
     () => new Map(users.map((user) => [user.id, user])),
@@ -207,7 +202,7 @@ export default function Dashboard() {
     setError('');
 
     try {
-      await logoutUser();
+      await logout();
       navigate('/login');
     } catch (err) {
       setError(getAuthErrorMessage(err));
@@ -221,20 +216,6 @@ export default function Dashboard() {
       <div className="auth-page">
         <div className="auth-card dashboard-card">
           <p>Loading dashboard...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!currentUser) {
-    return (
-      <div className="auth-page">
-        <div className="auth-card dashboard-card">
-          <h1>Not signed in</h1>
-          {error && <p className="auth-error">{error}</p>}
-          <p className="auth-footer">
-            <Link to="/login">Log in</Link> or <Link to="/register">Register</Link>
-          </p>
         </div>
       </div>
     );
